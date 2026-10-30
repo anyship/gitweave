@@ -100,7 +100,7 @@ async function renderStatus(repo, config) {
   const pid = runningPid(repo);
   const lines = [pid ? `${green('✓')} ${bold('gitweave is running')} ${dim(`(pid ${pid})`)}` : `${red('✗')} ${bold('gitweave is not running')} ${dim('(`gitweave up` starts it)')}`];
   if (rows.some((r) => r.state === 'sign in')) {
-    lines.push('', `${yellow('⚠')} ${bold('Sign in to Claude so gitweave can resolve conflicts:')}`, `  run ${bold('claude')} in a terminal and type ${bold('/login')}. gitweave retries every minute on its own.`);
+    lines.push('', `${yellow('⚠')} ${bold('Sign in to Claude so gitweave can resolve conflicts:')}`, `  gitweave opened a Terminal window with the sign-in; if it's gone, run ${bold('claude auth login')}. It retries every 30s on its own.`);
   }
   if (status?.paused) lines.push(`${yellow('⏸')} merges and deploys are paused ${dim('(`gitweave resume`)')}`);
 

@@ -1,4 +1,4 @@
-import { execFile, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -8,7 +8,7 @@ import { listWorktrees, realpathMaybe } from './repo.mjs';
 const TAIL = 4000;
 // The resolver ran but isn't signed in (expired OAuth, no API key, ...).
 const AUTH = /authenticat|\b401\b|\/login|not logged in|invalid api key|oauth/i;
-const loginRetryMs = () => Number(process.env.GITWEAVE_LOGIN_RETRY_MS) || 60000;
+const loginRetryMs = () => Number(process.env.GITWEAVE_LOGIN_RETRY_MS) || 30000;
 const MARKERS = /^(<{7}|={7}|>{7})( |$)/m;
 
 export const DEFAULT_RESOLVER = 'claude -p "$GITWEAVE_PROMPT" --permission-mode acceptEdits --allowedTools "Read Edit Write Grep Glob Bash(git diff:*) Bash(git log:*) Bash(git show:*)"';
@@ -72,13 +72,17 @@ function prompt(job) {
 
 let askedAt = 0;
 
-// gitweave runs in the background, so ask with a desktop notification (macOS),
-// at most every half hour. `gitweave status` and the log say the same.
-export function askToSignIn() {
-  if (process.env.GITWEAVE_NOTIFY === '0' || process.platform !== 'darwin' || Date.now() - askedAt < 30 * 60 * 1000) return;
+// Claude's sign-in is an OAuth flow in the browser that ends by pasting a code
+// back into the terminal, so it needs a real terminal. gitweave runs in the
+// background, so open one (macOS Terminal) running `claude auth login`, at most
+// every half hour. `config.login` replaces the command.
+export function askToSignIn(config = {}) {
+  if (process.env.GITWEAVE_NOTIFY === '0' || Date.now() - askedAt < 30 * 60 * 1000) return;
   askedAt = Date.now();
-  const script = 'display notification "Run claude in a terminal and type /login. gitweave retries on its own." with title "gitweave: sign in to Claude" subtitle "Needed to resolve merge conflicts"';
-  execFile('osascript', ['-e', script], () => {});
+  const command = config.login || (process.platform === 'darwin'
+    ? `osascript -e 'tell application "Terminal" to activate' -e 'tell application "Terminal" to do script "echo gitweave needs you to sign in to Claude to resolve merge conflicts.; claude auth login && exit"'`
+    : null);
+  if (command) spawn(command, { shell: true, detached: true, stdio: 'ignore' }).unref();
 }
 
 // Resolves conflicting lanes in the background, one at a time, in a private
@@ -166,7 +170,7 @@ export class Resolver {
       if (AUTH.test(error.message)) {
         // Not a bad resolution: the user has to sign in. Ask, then keep retrying.
         this.state.set(job.key, { state: 'login' });
-        this.log(`can't resolve ${job.lane} until you sign in to Claude: run \`claude\` and type /login (retrying every ${Math.round(loginRetryMs() / 1000)}s)`);
+        this.log(`can't resolve ${job.lane} until you sign in to Claude; opening the sign-in (or run \`claude auth login\`). Retrying every ${Math.round(loginRetryMs() / 1000)}s`);
         this.onLogin(job);
         const timer = setTimeout(() => {
           this.retries.delete(timer);

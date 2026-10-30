@@ -25,6 +25,7 @@ export const DEFAULTS = {
   staleDays: 30,
   prs: true,
   resolve: true,
+  login: null,
   resolveCommand: DEFAULT_RESOLVER,
   portless: true,
   anyship: false,

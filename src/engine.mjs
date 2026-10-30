@@ -40,7 +40,7 @@ export class Engine {
       : null;
     // Conflicting lanes are resolved in the background; the next pass applies the result.
     this.resolver = resolveConflicts && config.resolve && update
-      ? new Resolver(repo, config, { log: this.log, onDone: () => this.trigger({ force: true }), onLogin: () => askToSignIn() })
+      ? new Resolver(repo, config, { log: this.log, onDone: () => this.trigger({ force: true }), onLogin: () => askToSignIn(config) })
       : null;
     this.deployer = deploy && config.anyship && update
       ? new AnyshipDeployer(repo, config, {
